@@ -36,7 +36,7 @@ def validate_identifier(name, label="identifier"):
     """
     if not _SAFE_IDENTIFIER_RE.match(name):
         raise ValueError(
-            f"Invalid SQL {label} '{name}': only letters, digits, underscores "
+            f"Invalid SQL {label}: only letters, digits, underscores "
             "and dots are allowed, and the name must start with a letter or "
             "underscore."
         )

@@ -232,7 +232,7 @@ class QueryTab(QWidget):
                 for kw in ["ORDER BY", "GROUP BY", "HAVING", "LIMIT"]:
                     idx = sql_upper.find(kw)
                     if idx > 0:
-                        sql = sql[:idx] + f"AND {extent_clause} " + sql[idx:]
+                        sql = sql[:idx] + f" AND {extent_clause} " + sql[idx:]
                         break
                 else:
                     sql = sql + f" AND {extent_clause}"
