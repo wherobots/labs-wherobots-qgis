@@ -16,6 +16,7 @@ from qgis.gui import QgsMapLayerComboBox
 
 from ..core.connection import ConnectionManager
 from ..core.upload_task import UploadTask
+from ..utils.layer_utils import validate_identifier
 
 
 class UploadTab(QWidget):
@@ -142,6 +143,15 @@ class UploadTab(QWidget):
                 "Table name should be fully qualified (e.g., catalog.database.table)."
             )
             self.status_label.setStyleSheet("color: orange; background-color: transparent; border: none;")
+            return
+
+        # Validate that the name contains only safe characters to prevent SQL injection.
+        try:
+            validate_identifier(table_name, "table name")
+        except ValueError as exc:
+            self.status_label.setText(str(exc))
+            self.status_label.setStyleSheet("color: red; background-color: transparent; border: none;")
+            return
 
         self.upload_btn.setEnabled(False)
         self.cancel_btn.setVisible(True)

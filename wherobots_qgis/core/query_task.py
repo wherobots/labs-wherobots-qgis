@@ -58,6 +58,11 @@ class ConnectTask(QgsTask):
         except Exception as e:
             self.error_message = str(e)
             return False
+        finally:
+            # Always clear the API key from memory once it has been used —
+            # we don't want it sitting in the task object (visible in the
+            # task-manager or Python gc) any longer than necessary.
+            self.api_key = None
 
     def finished(self, result):
         if result:

@@ -1,3 +1,5 @@
+import re
+
 from qgis.PyQt.QtWidgets import (
     QWidget,
     QVBoxLayout,
@@ -25,8 +27,14 @@ from ..utils.layer_utils import (
     results_to_memory_layer,
     add_layer_to_project,
     get_map_extent_wkt,
+    validate_identifier,
 )
 from ..utils.settings import PluginSettings
+
+# Regex used to validate user-supplied geometry column names before they are
+# embedded in SQL strings.  Only plain identifiers are accepted (no dots,
+# to avoid catalog-style injection).
+_GEOM_COL_RE = re.compile(r'^[A-Za-z_][A-Za-z0-9_]*$')
 
 
 class QueryTab(QWidget):
@@ -203,17 +211,33 @@ class QueryTab(QWidget):
         # Append spatial extent filter
         if self.extent_checkbox.isChecked():
             geom_col = self.geom_col_input.text().strip() or "geometry"
+            # Validate the geometry column name before embedding it in SQL.
+            if not _GEOM_COL_RE.match(geom_col):
+                raise ValueError(
+                    "Invalid geometry column name: only letters, digits and "
+                    "underscores are allowed."
+                )
             extent_wkt = get_map_extent_wkt(self.iface)
+            # Escape any single quotes in the WKT (defensive).
+            extent_wkt_escaped = extent_wkt.replace("'", "''")
             extent_clause = (
-                f"ST_Intersects({geom_col}, ST_GeomFromWKT('{extent_wkt}'))"
+                f"ST_Intersects({geom_col}, ST_GeomFromWKT('{extent_wkt_escaped}'))"
             )
-            # Check if there's already a WHERE clause
             sql_upper = sql.upper()
             if "WHERE" in sql_upper:
-                # Insert before ORDER BY / LIMIT if present
-                sql = sql + f" AND {extent_clause}"
+                # There is already a WHERE clause.  We need to insert the new
+                # condition *before* any ORDER BY / GROUP BY / LIMIT so that
+                # it is part of the WHERE predicate rather than appended after
+                # those clauses.
+                for kw in ["ORDER BY", "GROUP BY", "HAVING", "LIMIT"]:
+                    idx = sql_upper.find(kw)
+                    if idx > 0:
+                        sql = sql[:idx] + f"AND {extent_clause} " + sql[idx:]
+                        break
+                else:
+                    sql = sql + f" AND {extent_clause}"
             else:
-                # Check if there's ORDER BY or LIMIT without WHERE
+                # No WHERE clause yet — insert before ORDER BY / LIMIT if present.
                 for kw in ["ORDER BY", "GROUP BY", "HAVING", "LIMIT"]:
                     idx = sql_upper.find(kw)
                     if idx > 0:
@@ -230,7 +254,12 @@ class QueryTab(QWidget):
         return sql
 
     def _on_execute(self):
-        sql = self._build_sql()
+        try:
+            sql = self._build_sql()
+        except ValueError as exc:
+            self.status_label.setText(str(exc))
+            self.status_label.setStyleSheet("color: red; background-color: transparent; border: none;")
+            return
         if not sql:
             self.status_label.setText("Please enter a query or select a table.")
             self.status_label.setStyleSheet("color: red; background-color: transparent; border: none;")
@@ -305,7 +334,18 @@ class QueryTab(QWidget):
 
     def _on_load_schemas(self):
         schema = self.schema_combo.currentText().strip()
-        sql = f"SHOW SCHEMAS IN {schema}" if schema else "SHOW SCHEMAS"
+        if schema:
+            try:
+                validate_identifier(schema, "schema name")
+            except ValueError as exc:
+                self.status_label.setText(str(exc))
+                self.status_label.setStyleSheet(
+                    "color: red; background-color: transparent; border: none;"
+                )
+                return
+            sql = f"SHOW SCHEMAS IN {schema}"
+        else:
+            sql = "SHOW SCHEMAS"
         self._browse_task = BrowseTablesTask(self.conn_mgr, sql, "Loading schemas")
         self._browse_task.taskCompleted.connect(self._on_schemas_loaded)
         self._browse_task.taskTerminated.connect(self._on_browse_error)
@@ -326,6 +366,14 @@ class QueryTab(QWidget):
         if not schema:
             self.status_label.setText("Enter a schema name first.")
             self.status_label.setStyleSheet("color: red; background-color: transparent; border: none;")
+            return
+        try:
+            validate_identifier(schema, "schema name")
+        except ValueError as exc:
+            self.status_label.setText(str(exc))
+            self.status_label.setStyleSheet(
+                "color: red; background-color: transparent; border: none;"
+            )
             return
         sql = f"SHOW TABLES IN {schema}"
         self._browse_task = BrowseTablesTask(self.conn_mgr, sql, "Loading tables")
