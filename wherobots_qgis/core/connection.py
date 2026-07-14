@@ -1,13 +1,43 @@
 from qgis.PyQt.QtCore import QObject, pyqtSignal
 
-from wherobots.db import connect as wb_connect
-from wherobots.db.region import Region
-from wherobots.db.runtime import Runtime
+# The wherobots-python-dbapi package is an external dependency that must be
+# installed into QGIS's bundled Python. Import it lazily-at-module-load but
+# guarded, so a missing dependency degrades to an actionable error message
+# instead of crashing plugin load with a cryptic ImportError.
+try:
+    from wherobots.db import connect as wb_connect
+    from wherobots.db.region import Region
+    from wherobots.db.runtime import Runtime
+
+    DBAPI_AVAILABLE = True
+except ImportError:
+    wb_connect = None
+    Region = None
+    Runtime = None
+
+    DBAPI_AVAILABLE = False
 
 
-# Dynamically build maps from whatever the installed library actually provides
-REGION_MAP = {r.value: r for r in Region}
-RUNTIME_MAP = {r.name: r for r in Runtime}
+# Correct, path-independent install guidance. The QGIS Python on macOS is not
+# at a fixed path (the command in older docs, .../QGIS.app/Contents/MacOS/bin/
+# python3, does not exist on many installs), so we point users at sys.executable
+# from the QGIS Python Console, which always resolves to the running interpreter.
+INSTALL_INSTRUCTIONS = (
+    "The 'wherobots-python-dbapi' package is required but is not installed in "
+    "QGIS's Python environment.\n\n"
+    "Install it from the QGIS Python Console (Plugins → Python Console):\n"
+    "    import subprocess, sys\n"
+    "    subprocess.check_call([sys.executable, '-m', 'pip', 'install', "
+    "'wherobots-python-dbapi'])\n\n"
+    "Then restart QGIS. Using sys.executable avoids hardcoded interpreter paths, "
+    "which differ across platforms and QGIS installations."
+)
+
+
+# Dynamically build maps from whatever the installed library actually provides.
+# Empty when the dependency is missing so the GUI still loads.
+REGION_MAP = {r.value: r for r in Region} if DBAPI_AVAILABLE else {}
+RUNTIME_MAP = {r.name: r for r in Runtime} if DBAPI_AVAILABLE else {}
 
 REGION_LABELS = list(REGION_MAP.keys())
 RUNTIME_LABELS = list(RUNTIME_MAP.keys())
@@ -49,6 +79,9 @@ class ConnectionManager(QObject):
         :param runtime_key: key into RUNTIME_MAP
         :raises Exception: on connection failure
         """
+        if not DBAPI_AVAILABLE:
+            raise RuntimeError(INSTALL_INSTRUCTIONS)
+
         region = REGION_MAP.get(region_key, Region.AWS_US_WEST_2)
         runtime = RUNTIME_MAP.get(runtime_key, Runtime.TINY)
 
