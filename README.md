@@ -59,3 +59,16 @@ QGIS is running — repeat the steps above from the QGIS Python Console.
 2. Enter your API key, pick a region and runtime, and click **Connect**
    (the runtime may take up to a minute to start).
 3. Use the **SQL Query**, **Upload**, and **Raster** tabs once connected.
+
+## Development
+
+The plugin's pure-Python logic layers are unit-tested outside QGIS — the test
+suite stubs the `qgis`/`PyQt` runtime, so no QGIS install is required.
+
+```bash
+pip install -r requirements-dev.txt
+pytest
+```
+
+Tests that require the `wherobots-python-dbapi` package skip automatically when
+it is not installed.
