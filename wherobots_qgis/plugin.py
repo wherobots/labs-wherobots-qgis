@@ -18,6 +18,7 @@ class WherobotsPlugin:
         self.iface = iface
         self.plugin_dir = os.path.dirname(os.path.abspath(__file__))
         self.actions = []
+        self.action = None
         self.menu = "&Wherobots"
         self.toolbar = None
         self.dock_widget = None
@@ -30,13 +31,19 @@ class WherobotsPlugin:
         icon_path = os.path.join(self.plugin_dir, "icon.png")
         icon = QIcon(icon_path) if os.path.exists(icon_path) else QIcon()
 
-        action = QAction(icon, "Wherobots", self.iface.mainWindow())
-        action.setObjectName("WherobotsAction")
-        action.triggered.connect(self.run)
+        self.action = QAction(icon, "Wherobots", self.iface.mainWindow())
+        self.action.setObjectName("WherobotsAction")
+        self.action.setToolTip("Wherobots — open the Wherobots panel")
+        self.action.setStatusTip(
+            "Open the Wherobots panel for spatial SQL, upload, and raster operations"
+        )
+        # Checkable so the button reflects whether the dock is currently open.
+        self.action.setCheckable(True)
+        self.action.triggered.connect(self.run)
 
-        self.toolbar.addAction(action)
-        self.iface.addPluginToWebMenu(self.menu, action)
-        self.actions.append(action)
+        self.toolbar.addAction(self.action)
+        self.iface.addPluginToWebMenu(self.menu, self.action)
+        self.actions.append(self.action)
 
     def unload(self):
         """Called by QGIS when the plugin is unloaded. Cleans up everything."""
@@ -61,13 +68,14 @@ class WherobotsPlugin:
             self.toolbar = None
 
     def run(self):
-        """Toggle the dock widget visibility."""
+        """Toggle the Wherobots dock widget, keeping the toolbar button in sync."""
         if self.dock_widget is None:
             from .gui.dock_widget import DockWidget
             self.dock_widget = DockWidget(self.iface)
-
-        if self.dock_widget.isVisible():
-            self.dock_widget.hide()
-        else:
             self.iface.addDockWidget(Qt.RightDockWidgetArea, self.dock_widget)
+            # Reflect dock visibility on the toolbar button, including when the
+            # user closes the dock via its own close button.
+            self.dock_widget.visibilityChanged.connect(self.action.setChecked)
             self.dock_widget.show()
+        else:
+            self.dock_widget.setVisible(not self.dock_widget.isVisible())

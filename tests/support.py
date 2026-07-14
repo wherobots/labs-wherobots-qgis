@@ -41,6 +41,8 @@ def install_qgis_stubs():
     qgis = types.ModuleType("qgis")
     pyqt = types.ModuleType("qgis.PyQt")
     qtcore = types.ModuleType("qgis.PyQt.QtCore")
+    qtwidgets = types.ModuleType("qgis.PyQt.QtWidgets")
+    qtgui = types.ModuleType("qgis.PyQt.QtGui")
     qgis_core = types.ModuleType("qgis.core")
 
     class QObject:
@@ -49,6 +51,7 @@ def install_qgis_stubs():
 
     class _Qt:
         TextSelectableByMouse = 1
+        RightDockWidgetArea = 2
 
     class QgsTask:
         CanCancel = 1
@@ -56,19 +59,61 @@ def install_qgis_stubs():
         def __init__(self, description="", flags=0):
             self.description = description
 
+    class QIcon:
+        def __init__(self, path=""):
+            self.path = path
+
+        def isNull(self):
+            return not bool(self.path)
+
+    class QAction:
+        def __init__(self, icon=None, text="", parent=None):
+            self.icon = icon
+            self.text = text
+            self.object_name = ""
+            self.tool_tip = ""
+            self.status_tip = ""
+            self.checkable = False
+            self.checked = False
+            self.triggered = FakeSignal()
+
+        def setObjectName(self, name):
+            self.object_name = name
+
+        def setToolTip(self, text):
+            self.tool_tip = text
+
+        def setStatusTip(self, text):
+            self.status_tip = text
+
+        def setCheckable(self, value):
+            self.checkable = value
+
+        def setChecked(self, value):
+            self.checked = bool(value)
+
+        def isChecked(self):
+            return self.checked
+
     qtcore.QObject = QObject
     qtcore.pyqtSignal = lambda *a, **k: FakeSignal()
     qtcore.Qt = _Qt
+    qtwidgets.QAction = QAction
+    qtgui.QIcon = QIcon
     qgis_core.QgsTask = QgsTask
 
     qgis.PyQt = pyqt
     pyqt.QtCore = qtcore
+    pyqt.QtWidgets = qtwidgets
+    pyqt.QtGui = qtgui
 
     sys.modules.update(
         {
             "qgis": qgis,
             "qgis.PyQt": pyqt,
             "qgis.PyQt.QtCore": qtcore,
+            "qgis.PyQt.QtWidgets": qtwidgets,
+            "qgis.PyQt.QtGui": qtgui,
             "qgis.core": qgis_core,
         }
     )
