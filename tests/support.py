@@ -50,8 +50,44 @@ def install_qgis_stubs():
             self._parent = parent
 
     class _Qt:
+        # Scoped forms (Qt6 / PyQt5 5.15) used by the plugin code.
+        class DockWidgetArea:
+            RightDockWidgetArea = 2
+
+        class TextInteractionFlag:
+            TextSelectableByMouse = 1
+
+        # Flat forms kept for any legacy references.
         TextSelectableByMouse = 1
         RightDockWidgetArea = 2
+
+    class QVariant:
+        # Qt5-style QVariant.Type members (absent on Qt6 → drives qt_compat).
+        Int = 2
+        LongLong = 4
+        Double = 6
+        String = 10
+        Bool = 1
+        Date = 14
+        DateTime = 16
+
+    class QMetaType:
+        class Type:
+            Int = 2
+            LongLong = 4
+            Double = 6
+            QString = 10
+            Bool = 1
+            QDate = 14
+            QDateTime = 16
+
+    class QgsWkbTypes:
+        Unknown = 0
+        NoGeometry = 100
+
+        @staticmethod
+        def displayString(_t):
+            return "Point"
 
     class QgsTask:
         CanCancel = 1
@@ -119,10 +155,13 @@ def install_qgis_stubs():
     qtcore.QObject = QObject
     qtcore.pyqtSignal = lambda *a, **k: FakeSignal()
     qtcore.Qt = _Qt
+    qtcore.QVariant = QVariant
+    qtcore.QMetaType = QMetaType
     qtwidgets.QAction = QAction
     qtgui.QIcon = QIcon
     qgis_core.QgsTask = QgsTask
     qgis_core.QgsSettings = QgsSettings
+    qgis_core.QgsWkbTypes = QgsWkbTypes
 
     qgis.PyQt = pyqt
     pyqt.QtCore = qtcore

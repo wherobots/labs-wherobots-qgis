@@ -4,6 +4,8 @@ import tempfile
 
 from qgis.core import QgsTask
 
+from ..utils.qt_compat import TASK_CAN_CANCEL
+
 # GeoTIFF magic bytes: little-endian ("II" + version 42) or big-endian ("MM" + version 42)
 _TIFF_LE_MAGIC = b"\x49\x49\x2a\x00"
 _TIFF_BE_MAGIC = b"\x4d\x4d\x00\x2a"
@@ -54,7 +56,7 @@ class RasterTask(QgsTask):
     """
 
     def __init__(self, sql, connection_manager, description="Running raster query"):
-        super().__init__(description, QgsTask.CanCancel)
+        super().__init__(description, TASK_CAN_CANCEL)
         self.sql = sql
         self.conn_mgr = connection_manager
         self.columns = None

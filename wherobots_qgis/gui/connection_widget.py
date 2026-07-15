@@ -41,7 +41,7 @@ class ConnectionWidget(QWidget):
         # API key row
         key_layout = QHBoxLayout()
         self.api_key_input = QLineEdit()
-        self.api_key_input.setEchoMode(QLineEdit.Password)
+        self.api_key_input.setEchoMode(QLineEdit.EchoMode.Password)
         self.api_key_input.setPlaceholderText("Enter Wherobots API key")
         key_layout.addWidget(QLabel("API Key:"))
         key_layout.addWidget(self.api_key_input)
@@ -77,7 +77,7 @@ class ConnectionWidget(QWidget):
         self.status_label = QLabel("Disconnected")
         self.status_label.setStyleSheet("color: gray; font-style: italic;")
         self.status_label.setWordWrap(True)
-        self.status_label.setTextInteractionFlags(Qt.TextSelectableByMouse)
+        self.status_label.setTextInteractionFlags(Qt.TextInteractionFlag.TextSelectableByMouse)
         group_layout.addWidget(self.status_label)
 
         group.setLayout(group_layout)
