@@ -127,14 +127,15 @@ class QueryTab(QWidget):
         row_limit_layout.addStretch()
         options_layout.addLayout(row_limit_layout)
 
-        # Spatial extent filter
+        # Spatial extent filter — persisted between plugin openings.
         self.extent_checkbox = QCheckBox("Filter by current map extent")
+        self.extent_checkbox.setChecked(self.settings.get_filter_by_extent())
         options_layout.addWidget(self.extent_checkbox)
 
         geom_col_layout = QHBoxLayout()
         geom_col_layout.addWidget(QLabel("Geometry column:"))
-        self.geom_col_input = QLineEdit("geometry")
-        self.geom_col_input.setEnabled(False)
+        self.geom_col_input = QLineEdit(self.settings.get_geometry_column())
+        self.geom_col_input.setEnabled(self.extent_checkbox.isChecked())
         geom_col_layout.addWidget(self.geom_col_input)
         options_layout.addLayout(geom_col_layout)
 
@@ -179,6 +180,9 @@ class QueryTab(QWidget):
         # --- Signals ---
         self.free_query_radio.toggled.connect(self._on_mode_changed)
         self.extent_checkbox.toggled.connect(self.geom_col_input.setEnabled)
+        # Persist the extent filter so it survives closing/reopening the plugin.
+        self.extent_checkbox.toggled.connect(self.settings.set_filter_by_extent)
+        self.geom_col_input.textChanged.connect(self.settings.set_geometry_column)
         self.execute_btn.clicked.connect(self._on_execute)
         self.cancel_btn.clicked.connect(self._on_cancel)
         self.load_schemas_btn.clicked.connect(self._on_load_schemas)

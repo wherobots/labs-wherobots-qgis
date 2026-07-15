@@ -52,5 +52,21 @@ class PluginSettings:
     def set_save_credentials(self, value):
         self._s.setValue(self._key("save_credentials"), bool(value))
 
+    # --- Filter query by current map extent (bounding box filter) ---
+
+    def get_filter_by_extent(self):
+        return self._s.value(self._key("filter_by_extent"), False, type=bool)
+
+    def set_filter_by_extent(self, value):
+        self._s.setValue(self._key("filter_by_extent"), bool(value))
+
+    # --- Geometry column used for the extent filter ---
+
+    def get_geometry_column(self):
+        return self._s.value(self._key("geometry_column"), "geometry")
+
+    def set_geometry_column(self, value):
+        self._s.setValue(self._key("geometry_column"), value)
+
     def clear_api_key(self):
         self._s.remove(self._key("api_key"))
