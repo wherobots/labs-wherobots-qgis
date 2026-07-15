@@ -1,0 +1,57 @@
+name: Build plugin zip
+
+# Builds the QGIS plugin zip on every update so a ready-to-install package is
+# always available, and publishes it as a GitHub Release when a version tag is
+# pushed (WBC-194).
+on:
+  push:
+    branches: [main]
+    tags: ['v*']
+  pull_request:
+    branches: [main]
+  workflow_dispatch:
+
+permissions:
+  contents: write  # required to create releases on tag pushes
+
+jobs:
+  build:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.11'
+
+      - name: Install test dependencies
+        run: pip install -r requirements-dev.txt
+
+      - name: Run tests
+        run: pytest -q
+
+      - name: Determine plugin version
+        id: version
+        run: |
+          version=$(grep -E '^version=' wherobots_qgis/metadata.txt | cut -d= -f2 | tr -d '[:space:]')
+          echo "version=$version" >> "$GITHUB_OUTPUT"
+          echo "Plugin version: $version"
+
+      - name: Build plugin zip
+        run: scripts/build_plugin_zip.sh "wherobots_qgis-${{ steps.version.outputs.version }}.zip"
+
+      - name: Upload build artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: wherobots_qgis-${{ steps.version.outputs.version }}
+          path: wherobots_qgis-*.zip
+          if-no-files-found: error
+
+      - name: Publish release
+        if: startsWith(github.ref, 'refs/tags/')
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          gh release create "${{ github.ref_name }}" wherobots_qgis-*.zip \
+            --title "${{ github.ref_name }}" \
+            --generate-notes
