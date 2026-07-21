@@ -2,9 +2,21 @@
 
 import pytest
 
-from tests.support import dbapi_installed, install_qgis_stubs, load_connection
+from tests.support import (
+    dbapi_installed,
+    install_qgis_stubs,
+    load_connection,
+    reset_qgs_settings,
+)
 
 install_qgis_stubs()
+
+
+@pytest.fixture(autouse=True)
+def _isolate_settings():
+    """Each test starts with an empty QgsSettings store."""
+    reset_qgs_settings()
+    yield
 
 
 @pytest.fixture

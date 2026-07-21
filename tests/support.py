@@ -59,6 +59,27 @@ def install_qgis_stubs():
         def __init__(self, description="", flags=0):
             self.description = description
 
+    class QgsSettings:
+        """In-memory stand-in. The backing store is class-level so separate
+        instances share state — mirroring QgsSettings' process-global backing
+        and letting tests simulate closing/reopening the plugin."""
+
+        _store = {}
+
+        def value(self, key, default=None, type=None):
+            val = QgsSettings._store.get(key, default)
+            if type is bool and not isinstance(val, bool):
+                if isinstance(val, str):
+                    return val.strip().lower() in ("1", "true", "yes")
+                return bool(val)
+            return val
+
+        def setValue(self, key, value):
+            QgsSettings._store[key] = value
+
+        def remove(self, key):
+            QgsSettings._store.pop(key, None)
+
     class QIcon:
         def __init__(self, path=""):
             self.path = path
@@ -101,6 +122,7 @@ def install_qgis_stubs():
     qtwidgets.QAction = QAction
     qtgui.QIcon = QIcon
     qgis_core.QgsTask = QgsTask
+    qgis_core.QgsSettings = QgsSettings
 
     qgis.PyQt = pyqt
     pyqt.QtCore = qtcore
@@ -117,6 +139,12 @@ def install_qgis_stubs():
             "qgis.core": qgis_core,
         }
     )
+
+
+def reset_qgs_settings():
+    """Clear the in-memory QgsSettings store between tests."""
+    install_qgis_stubs()
+    sys.modules["qgis.core"].QgsSettings._store.clear()
 
 
 class _DbapiBlocker:
