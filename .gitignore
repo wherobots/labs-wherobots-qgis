@@ -4,3 +4,7 @@ __pycache__/
 .pytest_cache/
 .venv/
 venv/
+
+# The plugin zip is a build artifact — produced by scripts/build_plugin_zip.sh
+# and published by CI (see .github/workflows/build-plugin-zip.yml). Not tracked.
+wherobots_qgis*.zip

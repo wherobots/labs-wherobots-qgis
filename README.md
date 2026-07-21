@@ -12,6 +12,17 @@ raster data directly into your map canvas.
 - The [`wherobots-python-dbapi`](https://pypi.org/project/wherobots-python-dbapi/)
   package installed **into QGIS's bundled Python** (see below)
 
+## Installing the plugin
+
+Download `wherobots_qgis-<version>.zip` from the repository's
+[**Releases**](https://github.com/wherobots/wherobots_qgis/releases) page, then
+in QGIS go to **Plugins → Manage and Install Plugins → Install from ZIP** and
+select the downloaded file. The zip is built automatically by CI — you don't
+need to package it yourself.
+
+(For an unreleased/in-development build, download the `wherobots_qgis-*` artifact
+from the latest run of the **Build plugin zip** GitHub Actions workflow.)
+
 ## Installing the `wherobots-python-dbapi` dependency
 
 The plugin talks to Wherobots through the `wherobots-python-dbapi` package,
@@ -72,3 +83,22 @@ pytest
 
 Tests that require the `wherobots-python-dbapi` package skip automatically when
 it is not installed.
+
+### Building and releasing the zip
+
+The distributable zip is a build artifact, not a checked-in file. Build it
+locally with:
+
+```bash
+scripts/build_plugin_zip.sh            # -> wherobots_qgis.zip
+```
+
+CI (`.github/workflows/build-plugin-zip.yml`) runs the tests and builds the zip
+on every push and pull request, uploading it as a workflow artifact. To publish
+a **GitHub Release** with the zip attached, bump `version=` in
+`wherobots_qgis/metadata.txt` and push a matching tag:
+
+```bash
+git tag v0.1.0
+git push origin v0.1.0
+```
