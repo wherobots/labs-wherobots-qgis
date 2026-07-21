@@ -1,9 +1,10 @@
 [general]
 name=Wherobots
 qgisMinimumVersion=3.22
+qgisMaximumVersion=4.99
 description=Connect to Wherobots Cloud for spatial SQL queries, data upload, and raster operations.
-about=Integrates Wherobots Cloud spatial computing platform with QGIS. Execute spatial SQL queries and view results as map layers, upload local layers to Wherobots tables, and query raster data directly into your map canvas.
-version=0.1.0
+about=Integrates Wherobots Cloud spatial computing platform with QGIS. Execute spatial SQL queries and view results as map layers, upload local layers to Wherobots tables, and query raster data directly into your map canvas. Compatible with QGIS 3.x (Qt5) and QGIS 4.0 (Qt6).
+version=0.2.0
 author=Wherobots
 email=support@wherobots.com
 repository=https://github.com/wherobots/wherobots-qgis

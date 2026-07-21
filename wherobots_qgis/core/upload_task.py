@@ -1,6 +1,7 @@
 from qgis.core import QgsTask
 
 from ..utils.layer_utils import layer_to_insert_sql
+from ..utils.qt_compat import TASK_CAN_CANCEL
 
 
 class UploadTask(QgsTask):
@@ -11,7 +12,7 @@ class UploadTask(QgsTask):
     """
 
     def __init__(self, layer, table_name, connection_manager):
-        super().__init__(f"Uploading to {table_name}", QgsTask.CanCancel)
+        super().__init__(f"Uploading to {table_name}", TASK_CAN_CANCEL)
         self.layer = layer
         self.table_name = table_name
         self.conn_mgr = connection_manager

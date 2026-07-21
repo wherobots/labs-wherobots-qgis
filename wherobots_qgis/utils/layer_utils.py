@@ -16,7 +16,17 @@ from qgis.core import (
     QgsWkbTypes,
     QgsJsonExporter,
 )
-from qgis.PyQt.QtCore import QVariant
+from .qt_compat import (
+    FIELD_INT,
+    FIELD_LONGLONG,
+    FIELD_DOUBLE,
+    FIELD_STRING,
+    FIELD_BOOL,
+    FIELD_DATE,
+    FIELD_DATETIME,
+    WKB_UNKNOWN,
+    WKB_NO_GEOMETRY,
+)
 
 # Regex to detect EWKT: optional "SRID=1234;" prefix followed by WKT geometry type
 _EWKT_PATTERN = re.compile(
@@ -25,18 +35,18 @@ _EWKT_PATTERN = re.compile(
     re.IGNORECASE,
 )
 
-# Map Python / DB-API types to QVariant types for QGIS fields
+# Map Python / DB-API types to QGIS field types (Qt5 QVariant / Qt6 QMetaType)
 _TYPE_MAP = {
-    "int": QVariant.Int,
-    "int64": QVariant.LongLong,
-    "int32": QVariant.Int,
-    "float": QVariant.Double,
-    "float64": QVariant.Double,
-    "float32": QVariant.Double,
-    "str": QVariant.String,
-    "object": QVariant.String,
-    "bool": QVariant.Bool,
-    "NoneType": QVariant.String,
+    "int": FIELD_INT,
+    "int64": FIELD_LONGLONG,
+    "int32": FIELD_INT,
+    "float": FIELD_DOUBLE,
+    "float64": FIELD_DOUBLE,
+    "float32": FIELD_DOUBLE,
+    "str": FIELD_STRING,
+    "object": FIELD_STRING,
+    "bool": FIELD_BOOL,
+    "NoneType": FIELD_STRING,
 }
 
 
@@ -80,12 +90,12 @@ def _detect_geom_type_df(df, geom_col):
             geom, _ = _parse_ewkt(val)
             if not geom.isNull():
                 return geom.wkbType()
-    return QgsWkbTypes.Unknown
+    return WKB_UNKNOWN
 
 
 def _dtype_to_qvariant(dtype_str):
-    """Map a Pandas dtype string to a QVariant type."""
-    return _TYPE_MAP.get(str(dtype_str), QVariant.String)
+    """Map a Pandas dtype string to a QGIS field type."""
+    return _TYPE_MAP.get(str(dtype_str), FIELD_STRING)
 
 
 def results_to_memory_layer(df, columns=None, layer_name="Query Result"):
@@ -102,7 +112,7 @@ def results_to_memory_layer(df, columns=None, layer_name="Query Result"):
         cols = columns or (list(df.columns) if df is not None else [])
         layer = QgsVectorLayer("Point?crs=EPSG:4326", layer_name, "memory")
         provider = layer.dataProvider()
-        fields = [QgsField(col, QVariant.String) for col in cols]
+        fields = [QgsField(col, FIELD_STRING) for col in cols]
         provider.addAttributes(fields)
         layer.updateFields()
         return layer
@@ -123,7 +133,7 @@ def results_to_memory_layer(df, columns=None, layer_name="Query Result"):
     # Detect geometry type and CRS
     if geom_col is not None:
         wkb_type = _detect_geom_type_df(df, geom_col)
-        type_str = QgsWkbTypes.displayString(wkb_type) if wkb_type != QgsWkbTypes.Unknown else "Point"
+        type_str = QgsWkbTypes.displayString(wkb_type) if wkb_type != WKB_UNKNOWN else "Point"
         first_geom_val = df[geom_col].iloc[0]
         _, srid = _parse_ewkt(str(first_geom_val))
     else:
@@ -241,15 +251,15 @@ def get_map_extent_bounds(iface):
 
 
 def _qgis_type_to_sql(qtype):
-    """Map QVariant field type to a Wherobots/Spark SQL type."""
+    """Map a QGIS field type to a Wherobots/Spark SQL type."""
     mapping = {
-        QVariant.Int: "INT",
-        QVariant.LongLong: "BIGINT",
-        QVariant.Double: "DOUBLE",
-        QVariant.String: "STRING",
-        QVariant.Bool: "BOOLEAN",
-        QVariant.Date: "DATE",
-        QVariant.DateTime: "TIMESTAMP",
+        FIELD_INT: "INT",
+        FIELD_LONGLONG: "BIGINT",
+        FIELD_DOUBLE: "DOUBLE",
+        FIELD_STRING: "STRING",
+        FIELD_BOOL: "BOOLEAN",
+        FIELD_DATE: "DATE",
+        FIELD_DATETIME: "TIMESTAMP",
     }
     return mapping.get(qtype, "STRING")
 
@@ -258,11 +268,11 @@ def _escape_sql_value(value, qtype):
     """Escape a Python value for embedding in a SQL statement."""
     if value is None or (isinstance(value, str) and value == ""):
         return "NULL"
-    if qtype in (QVariant.Int, QVariant.LongLong):
+    if qtype in (FIELD_INT, FIELD_LONGLONG):
         return str(int(value))
-    if qtype == QVariant.Double:
+    if qtype == FIELD_DOUBLE:
         return str(float(value))
-    if qtype == QVariant.Bool:
+    if qtype == FIELD_BOOL:
         return "TRUE" if value else "FALSE"
     # String — escape single quotes
     return "'" + str(value).replace("'", "''") + "'"
@@ -279,7 +289,7 @@ def layer_to_insert_sql(layer, table_name, batch_size=500):
     """
     fields = layer.fields()
     geom_type = layer.wkbType()
-    has_geom = geom_type != QgsWkbTypes.NoGeometry
+    has_geom = geom_type != WKB_NO_GEOMETRY
 
     # Build CREATE TABLE
     col_defs = []

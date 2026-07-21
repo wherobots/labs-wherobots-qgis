@@ -5,6 +5,18 @@ queries, data upload, and raster operations. Execute spatial SQL and view
 results as map layers, upload local layers to Wherobots tables, and query
 raster data directly into your map canvas.
 
+## Wherobots Labs
+
+This is a [Wherobots Labs](https://wherobots.com/labs) project.
+
+> Wherobots Labs projects were developed for customers to use. However test coverage is limited, and you are responsible for ensuring the project is ready for your use case. Wherobots does not make any guarantees about production readiness but you are free to adopt the software, contribute to its success, and fork the projects.
+
+> Any issues discovered through the use of this project should be filed as issues on the GitHub Repo. They will be reviewed as time permits, but there are no formal SLAs for support.
+
+Please file bugs and feature requests through
+[GitHub Issues](https://github.com/wherobots/labs-wherobots_qgis/issues).
+See [`CONTRIBUTING.md`](CONTRIBUTING.md) for how to contribute.
+
 ## Requirements
 
 - QGIS 3.22 or newer

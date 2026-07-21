@@ -72,7 +72,7 @@ class WherobotsPlugin:
         if self.dock_widget is None:
             from .gui.dock_widget import DockWidget
             self.dock_widget = DockWidget(self.iface)
-            self.iface.addDockWidget(Qt.RightDockWidgetArea, self.dock_widget)
+            self.iface.addDockWidget(Qt.DockWidgetArea.RightDockWidgetArea, self.dock_widget)
             # Reflect dock visibility on the toolbar button, including when the
             # user closes the dock via its own close button.
             self.dock_widget.visibilityChanged.connect(self.action.setChecked)

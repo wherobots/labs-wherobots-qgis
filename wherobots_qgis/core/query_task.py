@@ -1,5 +1,7 @@
 from qgis.core import QgsTask
 
+from ..utils.qt_compat import TASK_CAN_CANCEL
+
 
 # Max rows the Wherobots DB-API will return directly
 DIRECT_ROW_LIMIT = 1000
@@ -13,7 +15,7 @@ class QueryTask(QgsTask):
     """
 
     def __init__(self, sql, connection_manager, max_rows=100, description="Running query"):
-        super().__init__(description, QgsTask.CanCancel)
+        super().__init__(description, TASK_CAN_CANCEL)
         self.sql = sql
         self.conn_mgr = connection_manager
         self.max_rows = max_rows
@@ -44,7 +46,7 @@ class ConnectTask(QgsTask):
     """Background task to establish a Wherobots connection without blocking the UI."""
 
     def __init__(self, connection_manager, api_key, region, runtime):
-        super().__init__("Connecting to Wherobots", QgsTask.CanCancel)
+        super().__init__("Connecting to Wherobots", TASK_CAN_CANCEL)
         self.conn_mgr = connection_manager
         self.api_key = api_key
         self.region = region
@@ -70,7 +72,7 @@ class BrowseTablesTask(QgsTask):
     """Background task to list schemas or tables."""
 
     def __init__(self, connection_manager, sql, description="Browsing catalog"):
-        super().__init__(description, QgsTask.CanCancel)
+        super().__init__(description, TASK_CAN_CANCEL)
         self.conn_mgr = connection_manager
         self.sql = sql
         self.results = []
