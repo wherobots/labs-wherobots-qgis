@@ -76,6 +76,8 @@ class ConnectionWidget(QWidget):
         # Status label
         self.status_label = QLabel("Disconnected")
         self.status_label.setStyleSheet("color: gray; font-style: italic;")
+        self.status_label.setWordWrap(True)
+        self.status_label.setTextInteractionFlags(Qt.TextSelectableByMouse)
         group_layout.addWidget(self.status_label)
 
         group.setLayout(group_layout)
