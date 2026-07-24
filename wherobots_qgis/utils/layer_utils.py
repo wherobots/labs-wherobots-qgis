@@ -28,6 +28,29 @@ from .qt_compat import (
     WKB_NO_GEOMETRY,
 )
 
+# Matches fully-qualified identifiers such as "catalog.database.table_name"
+# or simple identifiers like "geometry".  Each dot-separated segment must
+# start with a letter or underscore followed by zero or more alphanumeric
+# characters/underscores.  This means leading/trailing dots and consecutive
+# dots are all rejected.
+_SAFE_IDENTIFIER_RE = re.compile(r'^[A-Za-z_][A-Za-z0-9_]*(\.[A-Za-z_][A-Za-z0-9_]*)*$')
+
+
+def validate_identifier(name, label="identifier"):
+    """Raise ValueError if *name* is not a safe SQL identifier.
+
+    Accepts simple names (``table_name``) and dot-qualified names
+    (``catalog.database.table``).  Raises :class:`ValueError` otherwise
+    so callers can surface a clean error message to the user without
+    revealing any details of the unsafe input in a SQL statement.
+    """
+    if not _SAFE_IDENTIFIER_RE.match(name):
+        raise ValueError(
+            f"Invalid SQL {label}: only letters, digits, underscores "
+            "and dots are allowed, and the name must start with a letter or "
+            "underscore."
+        )
+
 # Regex to detect EWKT: optional "SRID=1234;" prefix followed by WKT geometry type
 _EWKT_PATTERN = re.compile(
     r"^(SRID=\d+;)?\s*(POINT|LINESTRING|POLYGON|MULTIPOINT|MULTILINESTRING|"
@@ -286,7 +309,9 @@ def layer_to_insert_sql(layer, table_name, batch_size=500):
     :param layer: QgsVectorLayer source layer
     :param table_name: fully qualified target table name
     :param batch_size: number of rows per INSERT statement
+    :raises ValueError: if *table_name* contains unsafe characters
     """
+    validate_identifier(table_name, "table name")
     fields = layer.fields()
     geom_type = layer.wkbType()
     has_geom = geom_type != WKB_NO_GEOMETRY
@@ -313,7 +338,10 @@ def layer_to_insert_sql(layer, table_name, batch_size=500):
                 values.append(_escape_sql_value(feat.attribute(i), field.type()))
             if has_geom and feat.hasGeometry():
                 wkt = feat.geometry().asWkt()
-                values.append(f"ST_GeomFromWKT('{wkt}')")
+                # Escape any single quotes in the WKT string (defensive —
+                # QGIS-generated WKT shouldn't contain them, but be safe).
+                wkt_escaped = wkt.replace("'", "''")
+                values.append(f"ST_GeomFromWKT('{wkt_escaped}')")
             elif has_geom:
                 values.append("NULL")
             value_rows.append("(" + ", ".join(values) + ")")
