@@ -30,6 +30,9 @@ jobs:
       - name: Run tests
         run: pytest -q
 
+      - name: Security scan
+        run: bandit -r wherobots_qgis -q
+
       - name: Determine plugin version
         id: version
         run: |

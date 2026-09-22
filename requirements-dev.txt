@@ -2,3 +2,6 @@
 pytest>=8.0
 # Pillow backs the icon generator (scripts/make_icon.py) and the icon test.
 pillow>=10.0
+# Bandit is the security scanner CI and the review bot run against the
+# plugin package; keep it here so the same checks run locally.
+bandit>=1.9

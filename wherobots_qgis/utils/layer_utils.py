@@ -331,8 +331,12 @@ def _layer_to_insert_sql(layer, quoted_table, batch_size):
         if has_geom:
             col_names.append("`geometry`")
 
+        # Bandit B608 flags the f-string on sight. Every interpolated part is
+        # already safe: quoted_table and col_names come from
+        # quote_qualified_name()/quote_column(), value_rows from
+        # _escape_sql_value(). Suppressed below with that justification.
         insert_sql = (
-            f"INSERT INTO {quoted_table} ({', '.join(col_names)}) VALUES\n"
+            f"INSERT INTO {quoted_table} ({', '.join(col_names)}) VALUES\n"  # nosec B608
             + ",\n".join(value_rows)
         )
         yield insert_sql

@@ -158,3 +158,28 @@ def test_failing_tobytes_is_logged_not_swallowed(to_bytes):
 
     assert to_bytes(Broken()) is None
     assert any("tobytes() failed" in m[0] for m in logged_messages())
+
+
+# --- The log sink must never break its caller -----------------------------
+
+def test_a_failing_log_sink_does_not_raise_and_is_counted():
+    """The handler cannot log its own failure, so it counts the drop instead
+    of swallowing it silently (replaces a bare ``except: pass``)."""
+    import sys
+
+    from wherobots_qgis.utils import logging as plugin_log
+
+    sink = sys.modules["qgis.core"].QgsMessageLog
+    before = plugin_log.dropped_count()
+
+    def boom(message, tag="", level=0):
+        raise RuntimeError("C++ object already deleted")
+
+    original = sink.logMessage
+    sink.logMessage = staticmethod(boom)
+    try:
+        plugin_log.log_warning("close failed during unload")  # must not raise
+    finally:
+        sink.logMessage = original
+
+    assert plugin_log.dropped_count() == before + 1

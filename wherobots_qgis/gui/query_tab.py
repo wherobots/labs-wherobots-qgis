@@ -212,7 +212,11 @@ class QueryTab(QWidget):
             table = self.table_combo.currentText().strip()
             if not table:
                 return None
-            sql = f"SELECT * FROM {quote_qualified_name(table)}"
+            # Bandit B608 pattern-matches any f-string containing SELECT and
+            # cannot see that the only interpolated value is the output of
+            # quote_qualified_name(), which validates and backtick-quotes
+            # every part. Suppressed below with that justification.
+            sql = f"SELECT * FROM {quote_qualified_name(table)}"  # nosec B608
 
         if not sql:
             return None
