@@ -1,5 +1,7 @@
 from qgis.PyQt.QtCore import QObject, pyqtSignal
 
+from ..utils.logging import log_warning
+
 # The wherobots-python-dbapi package is an external dependency that must be
 # installed into QGIS's bundled Python. Import it lazily-at-module-load but
 # guarded, so a missing dependency degrades to an actionable error message
@@ -95,17 +97,20 @@ class ConnectionManager(QObject):
 
     def do_disconnect(self):
         """Close the connection. Safe to call even if not connected."""
+        # Teardown must not raise — a failed close still has to leave the
+        # manager in a disconnected state — but the failure is recorded so a
+        # leaked session is visible in the QGIS log instead of disappearing.
         if self._cursor:
             try:
                 self._cursor.close()
-            except Exception:
-                pass
+            except Exception as exc:
+                log_warning(f"Error closing Wherobots cursor: {exc}")
             self._cursor = None
         if self._conn:
             try:
                 self._conn.close()
-            except Exception:
-                pass
+            except Exception as exc:
+                log_warning(f"Error closing Wherobots connection: {exc}")
             self._conn = None
 
     def get_cursor(self):

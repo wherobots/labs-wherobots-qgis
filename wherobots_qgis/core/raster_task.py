@@ -1,9 +1,11 @@
 import base64
+import binascii
 import os
 import tempfile
 
 from qgis.core import QgsTask
 
+from ..utils.logging import log_debug
 from ..utils.qt_compat import TASK_CAN_CANCEL
 
 # GeoTIFF magic bytes: little-endian ("II" + version 42) or big-endian ("MM" + version 42)
@@ -21,7 +23,8 @@ def _to_bytes(val):
             decoded = base64.b64decode(val, validate=True)
             if len(decoded) >= 4:
                 return decoded
-        except Exception:
+        except (binascii.Error, ValueError):
+            # Not base64 — fall through and try the next encoding.
             pass
         # Try hex decoding (some drivers return hex strings)
         if all(c in "0123456789abcdefABCDEF" for c in val[:32]) and len(val) > 8:
@@ -29,14 +32,17 @@ def _to_bytes(val):
                 decoded = bytes.fromhex(val)
                 if len(decoded) >= 4:
                     return decoded
-            except Exception:
+            except ValueError:
+                # Not hex either — the value is not encoded binary.
                 pass
     # numpy bytes_ or objects with tobytes()
     if hasattr(val, "tobytes"):
         try:
             return val.tobytes()
-        except Exception:
-            pass
+        except (AttributeError, TypeError, ValueError) as exc:
+            # A tobytes() that exists but refuses is worth a trace: it means a
+            # raster column silently came back as None.
+            log_debug(f"tobytes() failed on {type(val).__name__}: {exc}")
     return None
 
 

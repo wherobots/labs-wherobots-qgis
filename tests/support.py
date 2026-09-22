@@ -152,6 +152,20 @@ def install_qgis_stubs():
         def isChecked(self):
             return self.checked
 
+    class Qgis:
+        Info = 0
+        Warning = 1
+        Critical = 2
+
+    class QgsMessageLog:
+        """Captures messages so tests can assert a failure was recorded."""
+
+        messages = []
+
+        @staticmethod
+        def logMessage(message, tag="", level=0):
+            QgsMessageLog.messages.append((message, tag, level))
+
     qtcore.QObject = QObject
     qtcore.pyqtSignal = lambda *a, **k: FakeSignal()
     qtcore.Qt = _Qt
@@ -162,6 +176,8 @@ def install_qgis_stubs():
     qgis_core.QgsTask = QgsTask
     qgis_core.QgsSettings = QgsSettings
     qgis_core.QgsWkbTypes = QgsWkbTypes
+    qgis_core.Qgis = Qgis
+    qgis_core.QgsMessageLog = QgsMessageLog
 
     qgis.PyQt = pyqt
     pyqt.QtCore = qtcore
@@ -184,6 +200,17 @@ def reset_qgs_settings():
     """Clear the in-memory QgsSettings store between tests."""
     install_qgis_stubs()
     sys.modules["qgis.core"].QgsSettings._store.clear()
+
+
+def logged_messages():
+    """Messages captured by the stub QgsMessageLog since the last clear."""
+    install_qgis_stubs()
+    return sys.modules["qgis.core"].QgsMessageLog.messages
+
+
+def clear_logged_messages():
+    install_qgis_stubs()
+    sys.modules["qgis.core"].QgsMessageLog.messages.clear()
 
 
 class _DbapiBlocker:

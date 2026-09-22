@@ -73,3 +73,25 @@ def test_disconnect_is_safe_when_not_connected(connection_missing):
     mgr = connection_missing.ConnectionManager()
     mgr.do_disconnect()  # must not raise
     assert mgr.is_connected() is False
+
+
+def test_disconnect_logs_close_failures_instead_of_swallowing(connection_missing):
+    """A failing close() must still disconnect, but leave a trace in the log."""
+    from tests.support import clear_logged_messages, logged_messages
+
+    class Failing:
+        def close(self):
+            raise RuntimeError("socket already gone")
+
+    clear_logged_messages()
+    mgr = connection_missing.ConnectionManager()
+    mgr._cursor = Failing()
+    mgr._conn = Failing()
+
+    mgr.do_disconnect()  # must not raise
+
+    assert mgr.is_connected() is False
+    assert mgr._cursor is None
+    messages = [m[0] for m in logged_messages()]
+    assert any("cursor" in m and "socket already gone" in m for m in messages)
+    assert any("connection" in m and "socket already gone" in m for m in messages)
