@@ -16,6 +16,7 @@ from qgis.gui import QgsMapLayerComboBox
 
 from ..core.connection import ConnectionManager
 from ..core.upload_task import UploadTask
+from ..utils.sql import quote_qualified_name
 
 
 class UploadTab(QWidget):
@@ -135,7 +136,16 @@ class UploadTab(QWidget):
             self.status_label.setStyleSheet("color: red; background-color: transparent; border: none;")
             return
 
-        # Validate table name format (should have at least catalog.db.table)
+        # Reject a name that cannot be safely quoted before the task starts,
+        # rather than failing part-way through the upload.
+        try:
+            quote_qualified_name(table_name)
+        except ValueError as exc:
+            self.status_label.setText(str(exc))
+            self.status_label.setStyleSheet("color: red; background-color: transparent; border: none;")
+            return
+
+        # Advisory: a name should be at least catalog.db.table.
         parts = table_name.split(".")
         if len(parts) < 2:
             self.status_label.setText(

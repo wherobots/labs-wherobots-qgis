@@ -27,6 +27,11 @@ from ..utils.layer_utils import (
     get_map_extent_wkt,
 )
 from ..utils.settings import PluginSettings
+from ..utils.sql import (
+    escape_string_literal,
+    quote_column,
+    quote_qualified_name,
+)
 
 
 class QueryTab(QWidget):
@@ -192,22 +197,30 @@ class QueryTab(QWidget):
         self.mode_stack.setCurrentIndex(0 if free_checked else 1)
 
     def _build_sql(self):
-        """Build the final SQL from the current UI state."""
+        """Build the final SQL from the current UI state.
+
+        Free-form SQL is passed through as typed — this is a database client
+        and arbitrary SQL is the point. Everything the plugin *constructs*
+        around it (table names, the geometry column, the extent literal) is
+        quoted, so a pasted name cannot change the shape of the statement.
+
+        :raises ValueError: if a table name or geometry column is invalid
+        """
         if self.free_query_radio.isChecked():
             sql = self.sql_editor.toPlainText().strip()
         else:
             table = self.table_combo.currentText().strip()
             if not table:
                 return None
-            sql = f"SELECT * FROM {table}"
+            sql = f"SELECT * FROM {quote_qualified_name(table)}"
 
         if not sql:
             return None
 
         # Append spatial extent filter
         if self.extent_checkbox.isChecked():
-            geom_col = self.geom_col_input.text().strip() or "geometry"
-            extent_wkt = get_map_extent_wkt(self.iface)
+            geom_col = quote_column(self.geom_col_input.text().strip() or "geometry")
+            extent_wkt = escape_string_literal(get_map_extent_wkt(self.iface))
             extent_clause = (
                 f"ST_Intersects({geom_col}, ST_GeomFromWKT('{extent_wkt}'))"
             )
@@ -234,7 +247,12 @@ class QueryTab(QWidget):
         return sql
 
     def _on_execute(self):
-        sql = self._build_sql()
+        try:
+            sql = self._build_sql()
+        except ValueError as exc:
+            self.status_label.setText(str(exc))
+            self.status_label.setStyleSheet("color: red; background-color: transparent; border: none;")
+            return
         if not sql:
             self.status_label.setText("Please enter a query or select a table.")
             self.status_label.setStyleSheet("color: red; background-color: transparent; border: none;")
@@ -309,7 +327,16 @@ class QueryTab(QWidget):
 
     def _on_load_schemas(self):
         schema = self.schema_combo.currentText().strip()
-        sql = f"SHOW SCHEMAS IN {schema}" if schema else "SHOW SCHEMAS"
+        try:
+            sql = (
+                f"SHOW SCHEMAS IN {quote_qualified_name(schema)}"
+                if schema
+                else "SHOW SCHEMAS"
+            )
+        except ValueError as exc:
+            self.status_label.setText(str(exc))
+            self.status_label.setStyleSheet("color: red; background-color: transparent; border: none;")
+            return
         self._browse_task = BrowseTablesTask(self.conn_mgr, sql, "Loading schemas")
         self._browse_task.taskCompleted.connect(self._on_schemas_loaded)
         self._browse_task.taskTerminated.connect(self._on_browse_error)
@@ -331,7 +358,12 @@ class QueryTab(QWidget):
             self.status_label.setText("Enter a schema name first.")
             self.status_label.setStyleSheet("color: red; background-color: transparent; border: none;")
             return
-        sql = f"SHOW TABLES IN {schema}"
+        try:
+            sql = f"SHOW TABLES IN {quote_qualified_name(schema)}"
+        except ValueError as exc:
+            self.status_label.setText(str(exc))
+            self.status_label.setStyleSheet("color: red; background-color: transparent; border: none;")
+            return
         self._browse_task = BrowseTablesTask(self.conn_mgr, sql, "Loading tables")
         self._browse_task.taskCompleted.connect(self._on_tables_loaded)
         self._browse_task.taskTerminated.connect(self._on_browse_error)

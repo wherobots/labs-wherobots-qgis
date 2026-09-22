@@ -16,6 +16,7 @@ from qgis.core import (
     QgsWkbTypes,
     QgsJsonExporter,
 )
+from .sql import escape_string_literal, quote_column, quote_qualified_name
 from .qt_compat import (
     FIELD_INT,
     FIELD_LONGLONG,
@@ -275,7 +276,7 @@ def _escape_sql_value(value, qtype):
     if qtype == FIELD_BOOL:
         return "TRUE" if value else "FALSE"
     # String — escape single quotes
-    return "'" + str(value).replace("'", "''") + "'"
+    return "'" + escape_string_literal(value) + "'"
 
 
 def layer_to_insert_sql(layer, table_name, batch_size=500):
@@ -286,7 +287,15 @@ def layer_to_insert_sql(layer, table_name, batch_size=500):
     :param layer: QgsVectorLayer source layer
     :param table_name: fully qualified target table name
     :param batch_size: number of rows per INSERT statement
+    :raises ValueError: if ``table_name`` is not a valid identifier
     """
+    # Validate eagerly rather than inside the generator body, so a bad table
+    # name is rejected at the call site instead of part-way through an upload.
+    quoted_table = quote_qualified_name(table_name)
+    return _layer_to_insert_sql(layer, quoted_table, batch_size)
+
+
+def _layer_to_insert_sql(layer, quoted_table, batch_size):
     fields = layer.fields()
     geom_type = layer.wkbType()
     has_geom = geom_type != WKB_NO_GEOMETRY
@@ -295,11 +304,11 @@ def layer_to_insert_sql(layer, table_name, batch_size=500):
     col_defs = []
     for field in fields:
         sql_type = _qgis_type_to_sql(field.type())
-        col_defs.append(f"  {field.name()} {sql_type}")
+        col_defs.append(f"  {quote_column(field.name())} {sql_type}")
     if has_geom:
-        col_defs.append("  geometry GEOMETRY")
+        col_defs.append("  `geometry` GEOMETRY")
 
-    create_sql = f"CREATE TABLE {table_name} (\n" + ",\n".join(col_defs) + "\n)"
+    create_sql = f"CREATE TABLE {quoted_table} (\n" + ",\n".join(col_defs) + "\n)"
     yield create_sql
 
     # Build INSERT statements in batches
@@ -312,18 +321,18 @@ def layer_to_insert_sql(layer, table_name, batch_size=500):
             for i, field in enumerate(fields):
                 values.append(_escape_sql_value(feat.attribute(i), field.type()))
             if has_geom and feat.hasGeometry():
-                wkt = feat.geometry().asWkt()
+                wkt = escape_string_literal(feat.geometry().asWkt())
                 values.append(f"ST_GeomFromWKT('{wkt}')")
             elif has_geom:
                 values.append("NULL")
             value_rows.append("(" + ", ".join(values) + ")")
 
-        col_names = [field.name() for field in fields]
+        col_names = [quote_column(field.name()) for field in fields]
         if has_geom:
-            col_names.append("geometry")
+            col_names.append("`geometry`")
 
         insert_sql = (
-            f"INSERT INTO {table_name} ({', '.join(col_names)}) VALUES\n"
+            f"INSERT INTO {quoted_table} ({', '.join(col_names)}) VALUES\n"
             + ",\n".join(value_rows)
         )
         yield insert_sql
