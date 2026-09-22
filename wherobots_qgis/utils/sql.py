@@ -65,5 +65,18 @@ def escape_string_literal(value):
     """Escape a value for embedding inside a single-quoted SQL literal.
 
     Returns the inner text only — the caller supplies the surrounding quotes.
+
+    Two characters need escaping. Doubling the quote is the obvious one, but
+    Spark SQL also treats a backslash as live inside a string literal (the
+    default, ``spark.sql.parser.escapedStringLiterals=false``), so a value
+    ending in a backslash escapes the closing quote the caller appends and
+    breaks out of the literal. Both are doubled. The two replacements
+    commute — neither introduces a character the other acts on — so the order
+    below is arbitrary.
+
+    This assumes the session default. Under
+    ``spark.sql.parser.escapedStringLiterals=true`` (legacy Spark 1.6
+    behaviour, where a backslash is literal) the doubling here would survive
+    into the stored value, and this function would have to change.
     """
-    return str(value).replace("'", "''")
+    return str(value).replace("\\", "\\\\").replace("'", "''")

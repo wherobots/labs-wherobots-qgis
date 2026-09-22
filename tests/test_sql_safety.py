@@ -90,6 +90,27 @@ def test_literal_escaping_defuses_a_quote_break_out():
     assert escape_string_literal("x'); DROP TABLE t; --") == "x''); DROP TABLE t; --"
 
 
+def test_trailing_backslash_cannot_escape_the_closing_quote():
+    """The bypass: Spark treats a backslash as live in a string literal, so an
+    attribute ending in one would escape the quote the caller appends."""
+    assert escape_string_literal("foo\\") == "foo\\\\"
+
+
+def test_a_value_mixing_backslashes_and_quotes_escapes_both():
+    assert escape_string_literal("a\\'b") == "a\\\\''b"
+
+
+def test_backslash_quote_break_out_is_neutralised():
+    hostile = "x\\'); DROP TABLE t; --"
+    assert escape_string_literal(hostile) == "x\\\\''); DROP TABLE t; --"
+
+
+def test_ordinary_windows_style_paths_round_trip():
+    """Doubling is the escaped form, not corruption: Spark reads it back as
+    the original single backslashes."""
+    assert escape_string_literal("C:\\data\\layer") == "C:\\\\data\\\\layer"
+
+
 # --- _to_bytes: the narrowed excepts must not change behaviour -------------
 
 @pytest.fixture

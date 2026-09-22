@@ -145,19 +145,24 @@ class UploadTab(QWidget):
             self.status_label.setStyleSheet("color: red; background-color: transparent; border: none;")
             return
 
-        # Advisory: a name should be at least catalog.db.table.
-        parts = table_name.split(".")
-        if len(parts) < 2:
-            self.status_label.setText(
-                "Table name should be fully qualified (e.g., catalog.database.table)."
+        # Advisory: a name should be at least catalog.db.table. This does not
+        # block the upload, so it is carried into the progress message rather
+        # than being set and then immediately overwritten by it.
+        advisory = ""
+        if len(table_name.split(".")) < 2:
+            advisory = (
+                " Note: table name is not fully qualified "
+                "(e.g., catalog.database.table)."
             )
-            self.status_label.setStyleSheet("color: orange; background-color: transparent; border: none;")
 
         self.upload_btn.setEnabled(False)
         self.cancel_btn.setVisible(True)
         self.progress_bar.setVisible(True)
-        self.status_label.setText("Uploading layer...")
-        self.status_label.setStyleSheet("color: gray; background-color: transparent; border: none;")
+        self.status_label.setText("Uploading layer..." + advisory)
+        self.status_label.setStyleSheet(
+            ("color: orange; " if advisory else "color: gray; ")
+            + "background-color: transparent; border: none;"
+        )
 
         self._upload_task = UploadTask(layer, table_name, self.conn_mgr)
         self._upload_task.taskCompleted.connect(self._on_upload_success)
