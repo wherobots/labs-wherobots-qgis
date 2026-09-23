@@ -26,6 +26,7 @@ from ..utils.layer_utils import (
     add_layer_to_project,
     get_map_extent_wkt,
 )
+from ..utils.qt_compat import task_is_alive
 from ..utils.settings import PluginSettings
 from ..utils.sql import (
     escape_string_literal,
@@ -276,14 +277,17 @@ class QueryTab(QWidget):
         QgsApplication.taskManager().addTask(self._query_task)
 
     def _on_cancel(self):
-        if self._query_task:
+        if task_is_alive(self._query_task):
             self._query_task.cancel()
 
     def cancel_running_task(self):
         """Cancel any running task and reset UI. Called on disconnect."""
-        if self._query_task:
+        if task_is_alive(self._query_task):
             self._query_task.cancel()
-            self._query_task = None
+        self._query_task = None
+        if task_is_alive(self._browse_task):
+            self._browse_task.cancel()
+        self._browse_task = None
         self._reset_ui()
 
     def _reset_ui(self):
@@ -296,7 +300,14 @@ class QueryTab(QWidget):
         self.cancel_btn.setVisible(False)
         self.execute_btn.setEnabled(True)
 
+        # The task manager destroys the task once it has finished, so take the
+        # reference and drop ours here rather than leaving a stale wrapper for
+        # a later cancel to trip over.
         task = self._query_task
+        self._query_task = None
+        if not task_is_alive(task):
+            return
+
         self._query_counter += 1
         layer_name = f"Wherobots Query {self._query_counter}"
 
@@ -321,11 +332,14 @@ class QueryTab(QWidget):
         self.progress_bar.setVisible(False)
         self.cancel_btn.setVisible(False)
         self.execute_btn.setEnabled(True)
-        if self._query_task and self._query_task.isCanceled():
+
+        task = self._query_task
+        self._query_task = None
+        if task_is_alive(task) and task.isCanceled():
             self.status_label.setText("Query cancelled.")
             self.status_label.setStyleSheet("color: orange; background-color: transparent; border: none;")
         else:
-            error = self._query_task.error_message if self._query_task else "Unknown error"
+            error = task.error_message if task_is_alive(task) else "Unknown error"
             self.status_label.setText(f"Error: {error}")
             self.status_label.setStyleSheet("color: red; background-color: transparent; border: none;")
 
@@ -348,6 +362,9 @@ class QueryTab(QWidget):
 
     def _on_schemas_loaded(self):
         task = self._browse_task
+        self._browse_task = None
+        if not task_is_alive(task):
+            return
         self.schema_combo.clear()
         for row in task.results:
             # SHOW SCHEMAS returns rows with schema name as first column
@@ -375,6 +392,9 @@ class QueryTab(QWidget):
 
     def _on_tables_loaded(self):
         task = self._browse_task
+        self._browse_task = None
+        if not task_is_alive(task):
+            return
         self.table_combo.clear()
         schema = self.schema_combo.currentText().strip()
         for row in task.results:
@@ -386,6 +406,8 @@ class QueryTab(QWidget):
             self.status_label.setStyleSheet("color: orange; background-color: transparent; border: none;")
 
     def _on_browse_error(self):
-        error = self._browse_task.error_message if self._browse_task else "Unknown error"
+        task = self._browse_task
+        self._browse_task = None
+        error = task.error_message if task_is_alive(task) else "Unknown error"
         self.status_label.setText(f"Browse error: {error}")
         self.status_label.setStyleSheet("color: red; background-color: transparent; border: none;")

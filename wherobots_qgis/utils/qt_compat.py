@@ -15,6 +15,9 @@ centralised here:
 2. Some QGIS enums (``QgsTask.Flag``, ``QgsWkbTypes.Type``) are only reachable
    unscoped on older bindings and only scoped under PyQt6. ``_member`` resolves
    whichever form is present.
+
+It also holds ``task_is_alive``, which spans the same binding difference in
+where ``sip`` lives.
 """
 
 from qgis.PyQt.QtCore import QVariant
@@ -25,6 +28,15 @@ except ImportError:  # pragma: no cover - QMetaType is present on all targets
     QMetaType = None
 
 from qgis.core import QgsTask, QgsWkbTypes
+
+# sip moved under qgis.PyQt on modern bindings; older ones expose it top-level.
+try:
+    from qgis.PyQt import sip
+except ImportError:  # pragma: no cover - depends on the host bindings
+    try:
+        import sip
+    except ImportError:
+        sip = None
 
 
 def _member(cls, scope, name):
@@ -60,3 +72,22 @@ else:
 TASK_CAN_CANCEL = _member(QgsTask, "Flag", "CanCancel")
 WKB_UNKNOWN = _member(QgsWkbTypes, "Type", "Unknown")
 WKB_NO_GEOMETRY = _member(QgsWkbTypes, "Type", "NoGeometry")
+
+
+def task_is_alive(task):
+    """Whether a ``QgsTask`` reference can still be used from Python.
+
+    The task manager owns every task it is handed and destroys the underlying
+    C++ object once the task finishes. A Python attribute holding that task
+    outlives it, and calling into the stale wrapper raises
+
+        RuntimeError: wrapped C/C++ object of type QueryTask has been deleted
+
+    The tabs keep a reference so the user can cancel a running task, so they
+    have to ask before touching one.
+    """
+    if task is None:
+        return False
+    if sip is not None and sip.isdeleted(task):
+        return False
+    return True

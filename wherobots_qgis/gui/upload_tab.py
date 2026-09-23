@@ -16,6 +16,7 @@ from qgis.gui import QgsMapLayerComboBox
 
 from ..core.connection import ConnectionManager
 from ..core.upload_task import UploadTask
+from ..utils.qt_compat import task_is_alive
 from ..utils.sql import quote_qualified_name
 
 
@@ -170,14 +171,14 @@ class UploadTab(QWidget):
         QgsApplication.taskManager().addTask(self._upload_task)
 
     def _on_cancel(self):
-        if self._upload_task:
+        if task_is_alive(self._upload_task):
             self._upload_task.cancel()
 
     def cancel_running_task(self):
         """Cancel any running task and reset UI. Called on disconnect."""
-        if self._upload_task:
+        if task_is_alive(self._upload_task):
             self._upload_task.cancel()
-            self._upload_task = None
+        self._upload_task = None
         self._reset_ui()
 
     def _reset_ui(self):
@@ -189,8 +190,16 @@ class UploadTab(QWidget):
         self.progress_bar.setVisible(False)
         self.cancel_btn.setVisible(False)
         self.upload_btn.setEnabled(True)
+        # The task manager destroys the task once it has finished, so take the
+        # reference and drop ours here rather than leaving a stale wrapper for
+        # a later cancel to trip over.
+        task = self._upload_task
+        self._upload_task = None
+        if not task_is_alive(task):
+            return
+
         table_name = self.table_name_input.text().strip()
-        count = self._upload_task.statements_executed - 1  # minus CREATE TABLE
+        count = task.statements_executed - 1  # minus CREATE TABLE
         self.status_label.setText(
             f"Successfully uploaded to '{table_name}' ({count} batch(es))"
         )
@@ -200,10 +209,12 @@ class UploadTab(QWidget):
         self.progress_bar.setVisible(False)
         self.cancel_btn.setVisible(False)
         self.upload_btn.setEnabled(True)
-        if self._upload_task and self._upload_task.isCanceled():
+        task = self._upload_task
+        self._upload_task = None
+        if task_is_alive(task) and task.isCanceled():
             self.status_label.setText("Upload cancelled.")
             self.status_label.setStyleSheet("color: orange; background-color: transparent; border: none;")
         else:
-            error = self._upload_task.error_message if self._upload_task else "Unknown error"
+            error = task.error_message if task_is_alive(task) else "Unknown error"
             self.status_label.setText(f"Upload error: {error}")
             self.status_label.setStyleSheet("color: red; background-color: transparent; border: none;")

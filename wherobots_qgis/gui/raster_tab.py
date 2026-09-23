@@ -18,6 +18,7 @@ from qgis.core import QgsRasterLayer
 
 from ..core.connection import ConnectionManager
 from ..core.raster_task import RasterTask
+from ..utils.qt_compat import task_is_alive
 from ..utils.layer_utils import (
     results_to_memory_layer,
     add_layer_to_project,
@@ -185,14 +186,14 @@ class RasterTab(QWidget):
         QgsApplication.taskManager().addTask(self._raster_task)
 
     def _on_cancel(self):
-        if self._raster_task:
+        if task_is_alive(self._raster_task):
             self._raster_task.cancel()
 
     def cancel_running_task(self):
         """Cancel any running task and reset UI. Called on disconnect."""
-        if self._raster_task:
+        if task_is_alive(self._raster_task):
             self._raster_task.cancel()
-            self._raster_task = None
+        self._raster_task = None
         self._reset_ui()
 
     def _reset_ui(self):
@@ -205,7 +206,14 @@ class RasterTab(QWidget):
         self.cancel_btn.setVisible(False)
         self.execute_btn.setEnabled(True)
 
+        # The task manager destroys the task once it has finished, so take the
+        # reference and drop ours here rather than leaving a stale wrapper for
+        # a later cancel to trip over.
         task = self._raster_task
+        self._raster_task = None
+        if not task_is_alive(task):
+            return
+
         self._query_counter += 1
 
         # If we got GeoTIFF binary data, load as raster layers
@@ -258,10 +266,12 @@ class RasterTab(QWidget):
         self.progress_bar.setVisible(False)
         self.cancel_btn.setVisible(False)
         self.execute_btn.setEnabled(True)
-        if self._raster_task and self._raster_task.isCanceled():
+        task = self._raster_task
+        self._raster_task = None
+        if task_is_alive(task) and task.isCanceled():
             self.status_label.setText("Raster query cancelled.")
             self.status_label.setStyleSheet("color: orange; background-color: transparent; border: none;")
         else:
-            error = self._raster_task.error_message if self._raster_task else "Unknown error"
+            error = task.error_message if task_is_alive(task) else "Unknown error"
             self.status_label.setText(f"Error: {error}")
             self.status_label.setStyleSheet("color: red; background-color: transparent; border: none;")

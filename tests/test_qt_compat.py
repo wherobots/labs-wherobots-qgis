@@ -77,3 +77,54 @@ def test_scoped_qgis_enums_preferred_when_present(monkeypatch):
 
     monkeypatch.undo()
     _load_qt_compat()
+
+
+# --- task_is_alive ----------------------------------------------------------
+#
+# Regression guard for the crash seen in QGIS 4 after a query finished and the
+# user then disconnected:
+#
+#   File "gui/query_tab.py", in cancel_running_task
+#     self._query_task.cancel()
+#   RuntimeError: wrapped C/C++ object of type QueryTask has been deleted
+#
+# The task manager owns the task and destroys it on completion, leaving the
+# tab holding a stale wrapper.
+
+def test_none_is_not_alive():
+    compat = _load_qt_compat()
+    assert compat.task_is_alive(None) is False
+
+
+def test_a_live_task_is_alive():
+    compat = _load_qt_compat()
+    from qgis.core import QgsTask
+
+    assert compat.task_is_alive(QgsTask("running")) is True
+
+
+def test_a_deleted_task_is_not_alive(monkeypatch):
+    """The case that produced the traceback: the wrapper outlives the C++ object."""
+    compat = _load_qt_compat()
+    from qgis.core import QgsTask
+
+    task = QgsTask("finished")
+
+    class FakeSip:
+        @staticmethod
+        def isdeleted(obj):
+            return obj is task
+
+    monkeypatch.setattr(compat, "sip", FakeSip)
+    assert compat.task_is_alive(task) is False
+    assert compat.task_is_alive(QgsTask("other")) is True
+
+
+def test_missing_sip_does_not_break_the_check(monkeypatch):
+    """Bindings without sip fall back to treating a non-None task as usable."""
+    compat = _load_qt_compat()
+    from qgis.core import QgsTask
+
+    monkeypatch.setattr(compat, "sip", None)
+    assert compat.task_is_alive(QgsTask("running")) is True
+    assert compat.task_is_alive(None) is False
